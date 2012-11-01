@@ -93,8 +93,14 @@ class mysql::config(
       default: { $old_pw="-p'${old_root_password}'" }
     }
 
+    exec { 'create_empty_initial_my_cnf':
+        command => "touch ${root_home}/.my.cnf",
+        path    => '/usr/local/sbin:/usr/bin:/usr/local/bin',
+        creates => "${root_home}/.my.cnf"
+    }
+
     exec { 'set_mysql_rootpw':
-      command   => "mysqladmin -u root ${old_pw} password '${root_password}'",
+      command   => "mysqladmin --defaults-file=${root_home}/.my.cnf -u root ${old_pw} password '${root_password}'",
       logoutput => true,
       unless    => "mysqladmin -u root -p'${root_password}' status > /dev/null",
       path      => '/usr/local/sbin:/usr/bin:/usr/local/bin',
@@ -102,7 +108,10 @@ class mysql::config(
         true => Exec['mysqld-restart'],
         false => undef,
       },
-      require   => File['/etc/mysql/conf.d'],
+      require   => [
+          File['/etc/mysql/conf.d'],
+          Exec['create_empty_initial_my_cnf']
+      ]
     }
 
     file { '/root/.my.cnf':
